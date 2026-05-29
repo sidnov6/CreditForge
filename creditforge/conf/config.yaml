@@ -1,0 +1,130 @@
+# ============================================================================
+# CreditForge / BONITAS — central configuration
+# Single source of truth for thresholds, scaling, cutoffs, and run stamps.
+# Nothing in the modeling/validation code is hardcoded; it reads from here.
+# ============================================================================
+
+run:
+  seed: 42                      # global determinism
+  data_version: "synthetic-v1"  # bump when the generator schema changes
+  code_version: "0.1.0"
+
+paths:
+  bronze: "creditforge/data/bronze"
+  silver: "creditforge/data/silver"
+  gold:   "creditforge/data/gold"
+  artifacts: "creditforge/artifacts"
+  reports:   "creditforge/reports"
+
+# ---- Synthetic GSE-schema generator -----------------------------------------
+# Mimics Freddie Mac Single-Family loan-level + monthly performance schema so
+# real GSE files drop into the exact same Silver/Gold pipeline later.
+generator:
+  n_loans: 60000
+  vintage_start: "2015-01"      # origination cohorts, monthly
+  vintage_end:   "2021-12"
+  perf_horizon_months: 24       # monthly performance rows generated per loan
+  base_default_rate: 0.045      # portfolio-level 12m default rate (realistic mortgage)
+  recovery_mean: 0.65           # for LGD: mean recovery fraction on defaults
+
+# ---- Target definition (leakage discipline) ---------------------------------
+target:
+  observation_horizon_months: 12   # forward-looking default window
+  default_dpd_threshold: 90        # 90+ DPD (or foreclosure/disposition) => default
+  # Out-of-time split: train on older vintages, test on newer. Honest test.
+  oot:
+    train_vintage_end: "2019-12"   # train: <= this origination month
+    test_vintage_start: "2020-01"  # test:  >= this origination month
+    calib_fraction: 0.15           # held-out calibration set carved from train
+
+# ---- Feature sets ------------------------------------------------------------
+features:
+  # Borrower + loan attributes available AT origination/observation (no look-ahead)
+  numeric:
+    - fico
+    - dti
+    - ltv
+    - orig_interest_rate
+    - orig_upb
+    - orig_loan_term
+  categorical:
+    - occupancy_status
+    - loan_purpose
+    - property_type
+    - first_time_homebuyer
+  # Protected attribute for fairness analysis (FHFA-style); never a model input
+  protected:
+    - borrower_race
+
+# ---- WoE / scorecard ---------------------------------------------------------
+scorecard:
+  iv_min: 0.02          # drop near-useless features
+  iv_max: 0.5           # IV > 0.5 is suspicious (possible leakage) -> review
+  min_bin_size: 0.05    # each WoE bin >= 5% of population
+  monotonic_trend: "auto"
+  # Points-to-double-odds scaling (industry standard scorecard scaling)
+  pdo: 20
+  base_score: 600
+  base_odds: 50         # odds of good:bad at base_score
+
+# ---- Challenger (LightGBM) ---------------------------------------------------
+challenger:
+  n_estimators: 2000           # upper bound; early stopping picks the real count
+  learning_rate: 0.03
+  num_leaves: 15
+  min_child_samples: 200       # regularization: avoid overfitting the rare class
+  reg_lambda: 1.0
+  subsample: 0.8
+  colsample_bytree: 0.8
+  early_stopping_rounds: 80
+  # Imbalance handling (Part 10.5): we DON'T reweight the positive class for the
+  # ranking model — scale_pos_weight distorts gradients and hurts Gini, and we
+  # fix probability *levels* downstream with isotonic calibration anyway. The
+  # imbalance is instead respected via AUC/PR-AUC metrics + a cost-based decision
+  # threshold. Set true to A/B the reweighted variant.
+  use_scale_pos_weight: false
+
+# ---- Calibration -------------------------------------------------------------
+calibration:
+  method: "isotonic"    # isotonic | sigmoid(Platt)
+
+# ---- LGD / EAD ---------------------------------------------------------------
+lgd:
+  method: "two_stage"   # cure model (P[loss>0]) x severity regressor
+ead:
+  ccf: 1.0              # fully-drawn mortgage: EAD ~= outstanding balance
+
+# ---- Validation thresholds (also enforced as CI gates, Part 10.3) -----------
+validation:
+  gini_min: 0.35             # minimum acceptable out-of-time Gini
+  ks_min: 0.25
+  hl_pvalue_min: 0.01        # Hosmer-Lemeshow: fail build if catastrophically rejected
+  calibration_max_band_error: 0.03   # max |pred - obs| default rate per band
+  psi_bins: 10
+  psi_watch: 0.10            # < 0.10 stable, 0.10-0.25 watch, > 0.25 unstable
+  psi_unstable: 0.25
+  n_score_bands: 10
+
+# ---- Decision / business -----------------------------------------------------
+decision:
+  # Threshold from cost of false-negative vs false-positive (made explicit)
+  cost_fn: 15.0              # cost of approving a defaulter (loss >> lost margin)
+  cost_fp: 1.0               # cost of declining a good borrower (lost margin)
+  # Risk bands on the scaled score (low score = high risk)
+  # Floors aligned to the realized score distribution (pdo=20 scaling compresses
+  # the range to the model's discriminatory power) so every grade is populated
+  # with a monotonic default rate. Re-tune if pdo/base_score change.
+  bands:
+    - {name: "AAA", min_score: 630}
+    - {name: "AA",  min_score: 610}
+    - {name: "A",   min_score: 590}
+    - {name: "BBB", min_score: 568}
+    - {name: "BB",  min_score: 545}
+    - {name: "B",   min_score: 0}
+
+# ---- Fairness ----------------------------------------------------------------
+fairness:
+  protected_attribute: "borrower_race"
+  privileged_group: "White"
+  # Acceptable disparate-impact ratio band (4/5ths rule -> 0.8)
+  di_ratio_min: 0.80

@@ -1,0 +1,36 @@
+# ---- CreditForge / BONITAS :: Python dependencies ----
+# Pinned loosely (>=) for free-tier reproducibility; lockfile via `pip freeze` in CI.
+
+# Data engineering
+numpy>=1.26
+pandas>=2.1
+pyarrow>=14.0          # parquet for the medallion layers
+duckdb>=0.10           # chews the GSE panels on a laptop, no server
+polars>=0.20           # fast columnar transforms (optional fast path)
+
+# Modeling core
+scikit-learn>=1.4
+lightgbm>=4.1          # ML challenger
+optbinning>=0.19       # WoE/IV optimal monotonic binning + scorecard
+statsmodels>=0.14      # logistic inference, beta regression, HL test
+scipy>=1.11
+
+# Explainability / fairness / governance
+shap>=0.44
+fairlearn>=0.10
+
+# Experiment tracking + registry
+mlflow>=2.10
+
+# Serving
+fastapi>=0.110
+uvicorn[standard]>=0.27
+pydantic>=2.6
+
+# Orchestration / config / CLI
+pyyaml>=6.0
+typer>=0.12
+rich>=13.7
+
+# Testing
+pytest>=8.0

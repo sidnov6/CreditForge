@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+*.egg-info/
+
+# Data layers — regenerable from the seeded generator; never commit GSE data
+creditforge/data/bronze/*
+creditforge/data/silver/*
+creditforge/data/gold/*
+!creditforge/data/**/.gitkeep
+
+# Model + validation artifacts (regenerable)
+creditforge/artifacts/*
+!creditforge/artifacts/.gitkeep
+creditforge/reports/*.html
+mlruns/
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+
+# OS / editor
+.DS_Store
+.env
+.env.local
