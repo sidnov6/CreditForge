@@ -1,5 +1,7 @@
 // Thin client for the CreditForge FastAPI scoring service.
-export const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001";
+// Same-origin in the container (base = "/api"); in split local dev set
+// NEXT_PUBLIC_API_URL=http://localhost:8001 and it becomes that host + "/api".
+export const API = `${process.env.NEXT_PUBLIC_API_URL || ""}/api`;
 
 async function get(path) {
   const r = await fetch(`${API}${path}`, { cache: "no-store" });

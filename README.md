@@ -1,5 +1,7 @@
 # CreditForge · `BONITAS`
 
+**🌐 Live demo: https://huggingface.co/spaces/sidnov6/CreditForge**
+
 **Bank-grade credit-risk modeling & validation platform.** A calibrated PD model
 (regulatory WoE scorecard *and* an ML challenger), LGD, and EAD combined into
 Expected Loss — wrapped in a bank-grade validation suite, SHAP explainability,
@@ -26,6 +28,20 @@ python -m creditforge.cli train          # scorecard + challenger + calibration
 python -m creditforge.cli validate       # Gini/KS/calibration/PSI -> report
 python -m creditforge.cli all            # the whole lifecycle end-to-end
 ```
+
+## Deploy (single container)
+
+The whole app ships as one Docker image: FastAPI serves the API under `/api` and
+the pre-built static Next.js cockpit at `/` (one origin, no CORS). Models are
+trained and baked at build time, so the runtime image only serves.
+
+```bash
+docker build -t creditforge .
+docker run -p 7860:7860 creditforge        # open http://localhost:7860
+```
+
+Deployed free on Hugging Face Spaces (Docker SDK) — see
+[`deploy/push_to_hf.py`](deploy/push_to_hf.py). Live: the link at the top.
 
 ## Architecture (lifecycle, not an agent graph)
 

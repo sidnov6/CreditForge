@@ -1,0 +1,24 @@
+# keep the build context small + force clean rebuilds of generated stuff
+.git
+.venv
+mlruns
+**/__pycache__
+**/*.pyc
+.pytest_cache
+
+# node / next (the web stage runs npm ci + build fresh)
+app/dashboard/node_modules
+app/dashboard/.next
+app/dashboard/out
+
+# local data + artifacts (the trainer stage regenerates these in-image)
+creditforge/data/bronze
+creditforge/data/silver
+creditforge/data/gold
+creditforge/artifacts
+creditforge/reports/*.html
+
+# docs/CI not needed in the image
+.github
+*.md
+!creditforge/governance/model_card.md

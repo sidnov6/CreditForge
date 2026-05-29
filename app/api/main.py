@@ -1,19 +1,23 @@
 """CreditForge scoring API (FastAPI).
 
 Serves single-applicant scoring (PD/LGD/EL + decision + reason codes) and the
-precomputed report artifacts (validation, governance, monitoring, portfolio) so
-the Next.js Risk Cockpit has one backend. Run:
+precomputed report artifacts under `/api/*`, and (when present) the pre-built
+static Next.js Risk Cockpit at `/` — so the whole app runs as one container at
+one origin (no CORS). Run locally:
 
-    uvicorn app.api.main:app --reload --port 8000
+    uvicorn app.api.main:app --reload --port 8001
 """
 from __future__ import annotations
 
 import json
+import os
 from functools import lru_cache
+from pathlib import Path
 
 import pandas as pd
-from fastapi import FastAPI, HTTPException
+from fastapi import APIRouter, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from creditforge.config import load_config
@@ -23,6 +27,10 @@ from creditforge.serving import ModelBundle
 app = FastAPI(title="CreditForge Scoring API", version="0.1.0")
 app.add_middleware(
     CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+
+# All API endpoints live under /api so they never collide with the static
+# cockpit routes (e.g. the page /validation vs the endpoint /api/validation).
+router = APIRouter(prefix="/api")
 
 
 @lru_cache(maxsize=1)
@@ -52,12 +60,12 @@ class Applicant(BaseModel):
     vintage: str | None = Field(default=None, examples=["2021-06"])
 
 
-@app.get("/health")
+@router.get("/health")
 def health():
     return {"status": "ok", "stamp": load_config()["run"]}
 
 
-@app.post("/score")
+@router.post("/score")
 def score(applicant: Applicant):
     try:
         return bundle().score(applicant.model_dump())
@@ -65,27 +73,27 @@ def score(applicant: Applicant):
         raise HTTPException(422, f"missing feature: {e}")
 
 
-@app.get("/validation")
+@router.get("/validation")
 def validation():
     return _artifact("validation_report.json")
 
 
-@app.get("/governance")
+@router.get("/governance")
 def governance():
     return _artifact("governance_report.json")
 
 
-@app.get("/monitoring")
+@router.get("/monitoring")
 def monitoring():
     return _artifact("monitoring_report.json")
 
 
-@app.get("/shap/global")
+@router.get("/shap/global")
 def shap_global():
     return _artifact("shap_global.json")
 
 
-@app.get("/portfolio")
+@router.get("/portfolio")
 def portfolio(n: int = 500):
     """Portfolio risk view: aggregates + a sample of scored loans for the UI."""
     cfg = load_config()
@@ -122,3 +130,14 @@ def _histogram(series: pd.Series, bins: int) -> list[dict]:
     vc = counts.value_counts(sort=False)
     return [{"x": round(float(edges[i]), 4), "count": int(vc.iloc[i])}
             for i in range(len(vc))]
+
+
+# Register the API, then (in the container) serve the static Next.js export at /.
+app.include_router(router)
+
+_STATIC_DIR = os.environ.get("STATIC_DIR", "/app/static")
+if Path(_STATIC_DIR).is_dir():
+    # html=True serves index.html for directory routes (/, /portfolio/, …),
+    # matching Next's static export with trailingSlash. Mounted last so it
+    # never shadows the /api routes above.
+    app.mount("/", StaticFiles(directory=_STATIC_DIR, html=True), name="cockpit")

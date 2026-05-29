@@ -1,0 +1,17 @@
+# Slim runtime deps for the serving container (inference + reports only).
+# The heavier training/validation/monitoring stack (mlflow, statsmodels,
+# fairlearn, duckdb, polars, typer, …) is only needed to *produce* artifacts,
+# which happens in the Docker trainer stage — not at serve time.
+fastapi>=0.110
+uvicorn[standard]>=0.27
+pydantic>=2.6
+numpy>=1.26
+pandas>=2.1
+pyarrow>=14.0
+scikit-learn>=1.4
+scipy>=1.11
+lightgbm>=4.1
+optbinning>=0.19      # required to unpickle the WoE scorecard
+shap>=0.44            # local SHAP for adverse-action reason codes
+joblib>=1.3
+pyyaml>=6.0
