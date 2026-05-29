@@ -8,6 +8,7 @@ const NAV = [
   { href: "/validation", label: "Model Validation" },
   { href: "/monitoring", label: "Stability & Monitoring" },
   { href: "/governance", label: "Governance" },
+  { href: "/copilot", label: "Risk Copilot", accent: true },
 ];
 
 export default function Sidebar() {
@@ -23,8 +24,12 @@ export default function Sidebar() {
         {NAV.map((n) => {
           const active = n.href === "/" ? path === "/" : path.startsWith(n.href);
           return (
-            <Link key={n.href} href={n.href} className={active ? "active" : ""}>
+            <Link key={n.href} href={n.href} className={active ? "active" : ""}
+              style={n.accent && !active ? { color: "var(--accent)" } : undefined}>
               <span className="dot" /> {n.label}
+              {n.accent && <span style={{ marginLeft: "auto", fontSize: 9, opacity: .8,
+                border: "1px solid currentColor", borderRadius: 5, padding: "1px 5px",
+                letterSpacing: ".5px" }}>AI</span>}
             </Link>
           );
         })}

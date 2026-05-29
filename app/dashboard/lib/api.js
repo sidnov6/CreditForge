@@ -16,6 +16,17 @@ export const api = {
   monitoring: () => get("/monitoring"),
   shapGlobal: () => get("/shap/global"),
   portfolio: (n = 400) => get(`/portfolio?n=${n}`),
+  agentTeam: () => get("/agent/team"),
+  agentChat: async (question) => {
+    const r = await fetch(`${API}/agent/chat`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ question }),
+    });
+    const body = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(body.detail || `agent -> HTTP ${r.status}`);
+    return body;
+  },
   score: async (applicant) => {
     const r = await fetch(`${API}/score`, {
       method: "POST",

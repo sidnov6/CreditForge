@@ -132,6 +132,32 @@ def _histogram(series: pd.Series, bins: int) -> list[dict]:
             for i in range(len(vc))]
 
 
+# ---- Risk Copilot (agent layer) -------------------------------------------
+class AgentQuery(BaseModel):
+    question: str = Field(examples=["Why is the 2021 vintage riskier, and is the model fair?"])
+
+
+@router.get("/agent/team")
+def agent_team():
+    """The specialist roster shown in the Copilot UI."""
+    from creditforge.agents.specialists import SPECIALISTS
+    return {"llm_ready": bool(os.environ.get("GROQ_API_KEY")),
+            "model": load_config().agents.model,
+            "agents": [{"id": k, "title": v["title"],
+                        "tools": v["tools"]} for k, v in SPECIALISTS.items()]}
+
+
+@router.post("/agent/chat")
+def agent_chat(q: AgentQuery):
+    """Route the question to the specialist team and return answer + charts + trace."""
+    from creditforge.agents import orchestrator
+    from creditforge.agents.llm import LLMNotConfigured
+    try:
+        return orchestrator.run(q.question)
+    except LLMNotConfigured as e:
+        raise HTTPException(503, str(e))
+
+
 # Register the API, then (in the container) serve the static Next.js export at /.
 app.include_router(router)
 

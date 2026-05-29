@@ -122,6 +122,16 @@ decision:
     - {name: "BB",  min_score: 545}
     - {name: "B",   min_score: 0}
 
+# ---- Agents (Risk Copilot) ---------------------------------------------------
+# An LLM layer that ONLY orchestrates the real tools + narrates — the model core
+# stays classical ML. Free, fast Groq backend (OpenAI-compatible tool-calling).
+agents:
+  provider: groq
+  model: "llama-3.3-70b-versatile"   # strong tool-use on Groq's free tier
+  temperature: 0.2
+  max_tool_iters: 4                  # per-specialist LLM<->tool round trips
+  max_specialists: 3                 # how many specialists the orchestrator may use
+
 # ---- Fairness ----------------------------------------------------------------
 fairness:
   protected_attribute: "borrower_race"
