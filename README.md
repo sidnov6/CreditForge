@@ -57,7 +57,26 @@ Bronze (raw, vintage-partitioned)
           -> Validation (Gini/KS/gains, calibration/HL, PSI/CSI, benchmark)
             -> Governance (SHAP, reason codes, fairness, model card)
               -> Serving (FastAPI) + Risk Cockpit (Next.js) + drift monitoring
+                -> Risk Copilot (agent team over the platform tools)
 ```
+
+## Risk Copilot — the agent layer
+
+A specialist **agent team** sits on top of the platform (LLM orchestration only;
+the model core stays classical ML). A **Portfolio Analyst**, **Model Validator**,
+and **Fairness Officer** each wield a focused toolbelt over the *real* tools
+(scoring, portfolio slices, validation metrics, fairness, SHAP drivers). An
+orchestrator routes a question to the right specialist(s); answers come back with
+**interactive charts the agents emit** and a transparent **tool trace**. Numbers
+come from the models, never the LLM.
+
+- Backend: [`creditforge/agents/`](creditforge/agents/) — tools, Groq tool-calling
+  loop (forced first call for grounding; auto-fallback to a lighter model on
+  rate-limit), specialists, orchestrator. Endpoints: `/api/agent/team`, `/api/agent/chat`.
+- Frontend: the **Risk Copilot** screen — chat, the visible team (lights up which
+  specialists fired), live charts, and the agent/tool trace.
+- Free LLM backend via **Groq**. Set `GROQ_API_KEY` (env locally, Space secret in
+  prod). Everything else runs without it.
 
 ## Why this is bank-credible, not a Kaggle notebook
 The model is ~20% of the work. The 80% that proves maturity is the scaffolding:
@@ -75,9 +94,10 @@ creditforge/
   governance/           # shap_explain, reason_codes, fairness, model_card
   monitoring/           # scheduled PSI drift
   eval/                 # CI performance gates (Gini/cal/PSI thresholds)
-app/api/                # FastAPI scoring service
-app/dashboard/          # Next.js Risk Cockpit (5 screens)
-tests/                  # transform + EL-math unit tests, leakage tripwires
+  agents/               # Risk Copilot: tools, Groq loop, specialists, orchestrator
+app/api/                # FastAPI scoring service (+ /api/agent/*)
+app/dashboard/          # Next.js Risk Cockpit (6 screens, incl. Risk Copilot)
+tests/                  # transform + EL-math + leakage + agent-tool tests
 ```
 
 The leakage discipline is the keystone: features use only information available
